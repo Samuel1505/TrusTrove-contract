@@ -1,7 +1,7 @@
 #![cfg(test)]
 
-use crate::{RegistryContract, RegistryContractClient, RegistryError};
-use soroban_sdk::{testutils::Address as _, vec, map, Env, String};
+use crate::{RegistryContract, RegistryContractClient};
+use soroban_sdk::{testutils::Address as _, map, Address, Env, String};
 
 fn setup() -> (Env, RegistryContractClient<'static>) {
     let env = Env::default();
