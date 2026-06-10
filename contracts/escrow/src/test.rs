@@ -98,7 +98,7 @@ fn test_lock_stores_record() {
 }
 
 #[test]
-#[should_panic(expected = "EscrowError::InvalidAmount")]
+#[should_panic(expected = "Error(Contract, #5)")]
 fn test_lock_fails_zero_amount() {
     let (env, client, _admin, _pool, _usdc) = setup();
     let invoice_id = generate_invoice_id(&env);
@@ -106,7 +106,7 @@ fn test_lock_fails_zero_amount() {
 }
 
 #[test]
-#[should_panic(expected = "EscrowError::AlreadyLocked")]
+#[should_panic(expected = "Error(Contract, #4)")]
 fn test_lock_fails_duplicate() {
     let (env, client, _admin, _pool, _usdc) = setup();
     let invoice_id = generate_invoice_id(&env);

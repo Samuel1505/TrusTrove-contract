@@ -80,7 +80,7 @@ fn test_create_invoice_with_verified_parties() {
 }
 
 #[test]
-#[should_panic(expected = "InvoiceError::InvalidFaceValue")]
+#[should_panic(expected = "Error(Contract, #6)")]
 fn test_create_fails_zero_face_value() {
     let (env, client, issuer, buyer, _) = setup();
     let due_date = env.ledger().timestamp() + 86400;
@@ -88,7 +88,7 @@ fn test_create_fails_zero_face_value() {
 }
 
 #[test]
-#[should_panic(expected = "InvoiceError::InvalidDueDate")]
+#[should_panic(expected = "Error(Contract, #7)")]
 fn test_create_fails_past_due_date() {
     let (env, client, issuer, buyer, _) = setup();
     let past_date = env.ledger().timestamp() - 1;
@@ -110,7 +110,7 @@ fn test_list_for_financing() {
 }
 
 #[test]
-#[should_panic(expected = "InvoiceError::InvalidStatusTransition")]
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_list_fails_wrong_status() {
     let (env, client, issuer, buyer, _) = setup();
     let due_date = env.ledger().timestamp() + 86400;
@@ -120,7 +120,7 @@ fn test_list_fails_wrong_status() {
 }
 
 #[test]
-#[should_panic(expected = "InvoiceError::DiscountTooHigh")]
+#[should_panic(expected = "Error(Contract, #9)")]
 fn test_list_fails_discount_too_high() {
     let (env, client, issuer, buyer, _) = setup();
     let due_date = env.ledger().timestamp() + 86400;
@@ -201,7 +201,7 @@ fn test_get_by_status_returns_correct_invoices() {
 }
 
 #[test]
-#[should_panic(expected = "InvoiceError::NotFound")]
+#[should_panic(expected = "Error(Contract, #2)")]
 fn test_get_unknown_panics() {
     let (env, client, _, _, _) = setup();
     let fake_id = BytesN::from_array(&env, &[0u8; 32]);
@@ -252,7 +252,7 @@ fn test_confirm_by_both_transitions_to_confirmed() {
 }
 
 #[test]
-#[should_panic(expected = "InvoiceError::NotAuthorized")]
+#[should_panic(expected = "Error(Contract, #3)")]
 fn test_confirm_delivery_wrong_party_panics() {
     let (env, client, issuer, _buyer, registry) = setup();
     let stranger = Address::generate(&env);
@@ -312,7 +312,7 @@ fn test_get_by_status_filters_correctly() {
 }
 
 #[test]
-#[should_panic(expected = "InvoiceError::AlreadyConfirmed")]
+#[should_panic(expected = "Error(Contract, #10)")]
 fn test_double_confirmation_panics() {
     let (env, client, issuer, buyer, _) = setup();
     let due_date = env.ledger().timestamp() + 86400;

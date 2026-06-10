@@ -86,7 +86,7 @@ fn test_revoke_sets_verified_false() {
 }
 
 #[test]
-#[should_panic(expected = "RegistryError::AlreadyRegistered")]
+#[should_panic(expected = "Error(Contract, #2)")]
 fn test_duplicate_registration_panics() {
     let (env, client) = setup();
     let admin = Address::generate(&env);
@@ -97,7 +97,7 @@ fn test_duplicate_registration_panics() {
 }
 
 #[test]
-#[should_panic(expected = "RegistryError::AlreadyInitialized")]
+#[should_panic(expected = "Error(Contract, #1)")]
 fn test_double_initialize_panics() {
     let (env, client) = setup();
     let admin = Address::generate(&env);
@@ -106,7 +106,7 @@ fn test_double_initialize_panics() {
 }
 
 #[test]
-#[should_panic(expected = "RegistryError::NotFound")]
+#[should_panic(expected = "Error(Contract, #3)")]
 fn test_get_profile_unknown_panics() {
     let (env, client) = setup();
     let admin = Address::generate(&env);

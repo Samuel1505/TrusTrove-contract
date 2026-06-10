@@ -183,7 +183,7 @@ fn test_withdraw_returns_correct_usdc() {
 }
 
 #[test]
-#[should_panic(expected = "PoolError::InvalidAmount")]
+#[should_panic(expected = "Error(Contract, #4)")]
 fn test_withdraw_zero_shares_panics() {
     let te = setup();
     te.pool.deposit(&te.lp, &10_000_000_000);
@@ -191,7 +191,7 @@ fn test_withdraw_zero_shares_panics() {
 }
 
 #[test]
-#[should_panic(expected = "PoolError::InsufficientShares")]
+#[should_panic(expected = "Error(Contract, #7)")]
 fn test_withdraw_more_than_owned_panics() {
     let te = setup();
     te.pool.deposit(&te.lp, &10_000_000_000);
@@ -216,7 +216,7 @@ fn test_fund_invoice_reduces_available_liquidity() {
 }
 
 #[test]
-#[should_panic(expected = "PoolError::InsufficientLiquidity")]
+#[should_panic(expected = "Error(Contract, #5)")]
 fn test_fund_invoice_fails_when_insufficient_liquidity() {
     let te = setup();
     // Don't deposit anything — pool is empty
