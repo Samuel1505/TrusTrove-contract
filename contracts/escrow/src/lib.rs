@@ -129,7 +129,7 @@ impl EscrowContract {
             return false;
         }
 
-        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        let _admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         let pool: Address = env
             .storage()
             .instance()

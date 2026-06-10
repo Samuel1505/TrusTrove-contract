@@ -5,7 +5,7 @@ pub fn invoice_created(
     invoice_id: &BytesN<32>,
     issuer: &Address,
     buyer: &Address,
-    face_value: &u128,
+    face_value: u128,
 ) {
     env.events().publish(
         (
@@ -18,14 +18,14 @@ pub fn invoice_created(
     );
 }
 
-pub fn invoice_listed(env: &Env, invoice_id: &BytesN<32>, discount_bps: &u32) {
+pub fn invoice_listed(env: &Env, invoice_id: &BytesN<32>, discount_bps: u32) {
     env.events().publish(
         (Symbol::new(env, "invoice_listed"), invoice_id.clone()),
         discount_bps,
     );
 }
 
-pub fn invoice_funded(env: &Env, invoice_id: &BytesN<32>, funded_amount: &u128) {
+pub fn invoice_funded(env: &Env, invoice_id: &BytesN<32>, funded_amount: u128) {
     env.events().publish(
         (Symbol::new(env, "invoice_funded"), invoice_id.clone()),
         funded_amount,
@@ -55,7 +55,7 @@ pub fn both_confirmed(env: &Env, invoice_id: &BytesN<32>) {
         .publish((Symbol::new(env, "both_confirmed"), invoice_id.clone()), ());
 }
 
-pub fn invoice_repaid(env: &Env, invoice_id: &BytesN<32>, amount: &u128) {
+pub fn invoice_repaid(env: &Env, invoice_id: &BytesN<32>, amount: u128) {
     env.events().publish(
         (Symbol::new(env, "invoice_repaid"), invoice_id.clone()),
         amount,

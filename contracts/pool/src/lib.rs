@@ -1,6 +1,9 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, panic_with_error, token, Address, BytesN, Env, Symbol};
+use soroban_sdk::{
+    contract, contractimpl, panic_with_error, token, Address, BytesN, Env, IntoVal, Symbol,
+    Vec,
+};
 
 mod errors;
 mod events;
@@ -114,7 +117,7 @@ impl PoolContract {
             .persistent()
             .extend_ttl(&lp_init_key, 100, 2_000_000);
 
-        events::lp_deposited(&env, &lp, &usdc_amount, &shares_to_issue);
+        events::lp_deposited(&env, &lp, usdc_amount, shares_to_issue);
         shares_to_issue
     }
 
@@ -173,11 +176,7 @@ impl PoolContract {
         let init_dep_key = DataKey::LPInitialDeposit(lp.clone());
         let init_dep: u128 = env.storage().persistent().get(&init_dep_key).unwrap_or(0);
         let principal_portion = shares * init_dep / (lp_shares);
-        let yield_earned = if usdc_to_return > principal_portion {
-            usdc_to_return - principal_portion
-        } else {
-            0
-        };
+        let yield_earned = usdc_to_return.saturating_sub(principal_portion);
 
         let yield_key = DataKey::LPYieldEarned(lp.clone());
         let prev_yield: u128 = env.storage().persistent().get(&yield_key).unwrap_or(0);
@@ -188,7 +187,7 @@ impl PoolContract {
             .persistent()
             .extend_ttl(&yield_key, 100, 2_000_000);
 
-        events::lp_withdrawn(&env, &lp, &usdc_to_return, &shares);
+        events::lp_withdrawn(&env, &lp, usdc_to_return, shares);
         usdc_to_return
     }
 
@@ -202,25 +201,31 @@ impl PoolContract {
             .get(&DataKey::InvoiceContract)
             .unwrap();
 
+        let mut args = Vec::new(&env);
+        args.push_back(invoice_id.clone().into_val(&env));
         let invoice_status: u32 = env.invoke_contract(
             &invoice_contract,
             &Symbol::new(&env, "get_status"),
-            (invoice_id.clone(),),
+            args,
         );
         if invoice_status != 1 {
             // 1 = Listed
             panic_with_error!(&env, PoolError::InvoiceNotListed);
         }
 
+        let mut args = Vec::new(&env);
+        args.push_back(invoice_id.clone().into_val(&env));
         let face_value: u128 = env.invoke_contract(
             &invoice_contract,
             &Symbol::new(&env, "get_face_value"),
-            (invoice_id.clone(),),
+            args,
         );
+        let mut args = Vec::new(&env);
+        args.push_back(invoice_id.clone().into_val(&env));
         let discount_bps: u32 = env.invoke_contract(
             &invoice_contract,
             &Symbol::new(&env, "get_discount_bps"),
-            (invoice_id.clone(),),
+            args,
         );
 
         let funded_amount = face_value * (10000 - discount_bps as u128) / 10000;
@@ -242,16 +247,22 @@ impl PoolContract {
             .get(&DataKey::EscrowContract)
             .unwrap();
 
+        let mut args = Vec::new(&env);
+        args.push_back(invoice_id.clone().into_val(&env));
+        args.push_back(funded_amount.into_val(&env));
         let _: bool = env.invoke_contract(
             &escrow_contract,
             &Symbol::new(&env, "lock"),
-            (invoice_id.clone(), funded_amount),
+            args,
         );
 
+        let mut args = Vec::new(&env);
+        args.push_back(invoice_id.clone().into_val(&env));
+        args.push_back(funded_amount.into_val(&env));
         let _: bool = env.invoke_contract(
             &invoice_contract,
             &Symbol::new(&env, "mark_funded"),
-            (invoice_id.clone(), funded_amount),
+            args,
         );
 
         env.storage()
@@ -272,7 +283,7 @@ impl PoolContract {
             .persistent()
             .extend_ttl(&funded_key, 100, 2_000_000);
 
-        events::invoice_funded(&env, &invoice_id, &funded_amount);
+        events::invoice_funded(&env, &invoice_id, funded_amount);
         true
     }
 
@@ -329,7 +340,7 @@ impl PoolContract {
 
         env.storage().persistent().remove(&funded_key);
 
-        events::repayment_received(&env, &invoice_id, &amount, &yield_amount);
+        events::repayment_received(&env, &invoice_id, amount, yield_amount);
         true
     }
 
@@ -352,10 +363,12 @@ impl PoolContract {
             .instance()
             .get(&DataKey::EscrowContract)
             .unwrap();
+        let mut args = Vec::new(&env);
+        args.push_back(invoice_id.clone().into_val(&env));
         let _: bool = env.invoke_contract(
             &escrow_contract,
             &Symbol::new(&env, "handle_default"),
-            (invoice_id.clone(),),
+            args,
         );
 
         let total_funded: u128 = env.storage().instance().get(&DataKey::TotalFunded).unwrap();
@@ -383,7 +396,7 @@ impl PoolContract {
 
         env.storage().persistent().remove(&funded_key);
 
-        events::invoice_defaulted(&env, &invoice_id, &funded_amount);
+        events::invoice_defaulted(&env, &invoice_id, funded_amount);
         true
     }
 

@@ -1,7 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, panic_with_error, token, Address, Bytes, BytesN, Env, Symbol, Vec,
+    contract, contractimpl, panic_with_error, token, xdr::ToXdr, Address, Bytes, BytesN, Env,
+    IntoVal, Symbol, Vec,
 };
 
 mod errors;
@@ -56,19 +57,23 @@ impl InvoiceContract {
             .get(&DataKey::RegistryContract)
             .unwrap();
 
+        let mut args = Vec::new(&env);
+        args.push_back(issuer.clone().into_val(&env));
         let issuer_verified: bool = env.invoke_contract(
             &registry_id,
             &Symbol::new(&env, "is_verified"),
-            (issuer.clone(),),
+            args,
         );
         if !issuer_verified {
             panic_with_error!(&env, InvoiceError::IssuerNotVerified);
         }
 
+        let mut args = Vec::new(&env);
+        args.push_back(buyer.clone().into_val(&env));
         let buyer_verified: bool = env.invoke_contract(
             &registry_id,
             &Symbol::new(&env, "is_verified"),
-            (buyer.clone(),),
+            args,
         );
         if !buyer_verified {
             panic_with_error!(&env, InvoiceError::BuyerNotVerified);
@@ -89,11 +94,13 @@ impl InvoiceContract {
 
         let now = env.ledger().timestamp();
         let mut hash_input = Bytes::new(&env);
+        let issuer_xdr = issuer.clone().to_xdr(&env);
+        let buyer_xdr = buyer.clone().to_xdr(&env);
         for i in 0..32 {
-            hash_input.push_back(issuer.to_xdr(&env).get(i).unwrap());
+            hash_input.push_back(issuer_xdr.get(i).unwrap());
         }
         for i in 0..32 {
-            hash_input.push_back(buyer.to_xdr(&env).get(i).unwrap());
+            hash_input.push_back(buyer_xdr.get(i).unwrap());
         }
         for b in face_value.to_be_bytes() {
             hash_input.push_back(b);
@@ -104,7 +111,7 @@ impl InvoiceContract {
         for b in counter.to_be_bytes() {
             hash_input.push_back(b);
         }
-        let invoice_id = env.crypto().sha256(&hash_input);
+        let invoice_id: BytesN<32> = env.crypto().sha256(&hash_input).into();
 
         let invoice = Invoice {
             id: invoice_id.clone(),
@@ -142,7 +149,7 @@ impl InvoiceContract {
             &invoice_id,
             &invoice.issuer,
             &invoice.buyer,
-            &face_value,
+            face_value,
         );
         invoice_id
     }
@@ -174,7 +181,7 @@ impl InvoiceContract {
             InvoiceStatus::Created,
             InvoiceStatus::Listed,
         );
-        events::invoice_listed(&env, &invoice_id, &discount_bps);
+        events::invoice_listed(&env, &invoice_id, discount_bps);
         true
     }
 
@@ -209,7 +216,7 @@ impl InvoiceContract {
             InvoiceStatus::Listed,
             InvoiceStatus::Funded,
         );
-        events::invoice_funded(&env, &invoice_id, &funded_amount);
+        events::invoice_funded(&env, &invoice_id, funded_amount);
         true
     }
 
@@ -308,15 +315,18 @@ impl InvoiceContract {
             .unwrap();
 
         let usdc_asset: Address =
-            env.invoke_contract(&pool, &Symbol::new(&env, "get_usdc_asset"), ());
+            env.invoke_contract(&pool, &Symbol::new(&env, "get_usdc_asset"), Vec::new(&env));
 
         let usdc = token::Client::new(&env, &usdc_asset);
         usdc.transfer(&invoice.buyer, &pool, &(invoice.face_value as i128));
 
+        let mut args = Vec::new(&env);
+        args.push_back(invoice_id.clone().into_val(&env));
+        args.push_back(invoice.face_value.into_val(&env));
         let _: bool = env.invoke_contract(
             &pool,
             &Symbol::new(&env, "receive_repayment"),
-            (invoice_id.clone(), invoice.face_value),
+            args,
         );
 
         let mut updated = invoice;
@@ -333,7 +343,7 @@ impl InvoiceContract {
             InvoiceStatus::Confirmed,
             InvoiceStatus::Repaid,
         );
-        events::invoice_repaid(&env, &invoice_id, &updated.face_value);
+        events::invoice_repaid(&env, &invoice_id, updated.face_value);
         true
     }
 
@@ -362,24 +372,26 @@ impl InvoiceContract {
             panic_with_error!(&env, InvoiceError::DueDateNotPassed);
         }
 
-        let prev_status = invoice.status.clone();
+        let prev_status = invoice.status;
         invoice.status = InvoiceStatus::Defaulted;
         env.storage().persistent().set(&inv_key, &invoice);
         env.storage()
             .persistent()
             .extend_ttl(&inv_key, 100, 2_000_000);
 
-        self::move_status_index(&env, &invoice_id, &prev_status, &InvoiceStatus::Defaulted);
+        self::move_status_index(&env, &invoice_id, prev_status, InvoiceStatus::Defaulted);
 
         let pool: Address = env
             .storage()
             .instance()
             .get(&DataKey::PoolContract)
             .unwrap();
+        let mut args = Vec::new(&env);
+        args.push_back(invoice_id.clone().into_val(&env));
         let _: bool = env.invoke_contract(
             &pool,
             &Symbol::new(&env, "handle_default"),
-            (invoice_id.clone(),),
+            args,
         );
         events::invoice_defaulted(&env, &invoice_id);
         true
@@ -484,20 +496,26 @@ fn extend_index(env: &Env, key: &DataKey, invoice_id: &BytesN<32>) {
     env.storage().persistent().extend_ttl(key, 100, 2_000_000);
 }
 
-fn move_status_index(env: &Env, invoice_id: &BytesN<32>, from: &InvoiceStatus, to: &InvoiceStatus) {
-    let from_key = DataKey::InvoicesByStatus(from.clone() as u32);
+fn move_status_index(env: &Env, invoice_id: &BytesN<32>, from: InvoiceStatus, to: InvoiceStatus) {
+    let from_key = DataKey::InvoicesByStatus(from as u32);
     let mut from_ids: Vec<BytesN<32>> = env
         .storage()
         .persistent()
         .get(&from_key)
         .unwrap_or(Vec::new(env));
-    from_ids = from_ids.iter().filter(|id| *id != *invoice_id).collect();
+    let mut filtered: Vec<BytesN<32>> = Vec::new(env);
+    for id in from_ids.iter() {
+        if id != *invoice_id {
+            filtered.push_back(id);
+        }
+    }
+    from_ids = filtered;
     env.storage().persistent().set(&from_key, &from_ids);
     env.storage()
         .persistent()
         .extend_ttl(&from_key, 100, 2_000_000);
 
-    let to_key = DataKey::InvoicesByStatus(to.clone() as u32);
+    let to_key = DataKey::InvoicesByStatus(to as u32);
     let mut to_ids: Vec<BytesN<32>> = env
         .storage()
         .persistent()

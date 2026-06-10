@@ -1,10 +1,11 @@
 #![cfg(test)]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, testutils::Address as _, Address, BytesN, Env, Vec,
+    contract, contractimpl, contracttype, testutils::Address as _, testutils::Ledger, Address,
+    BytesN, Env,
 };
 
-use crate::{InvoiceContract, InvoiceContractClient, InvoiceError, InvoiceStatus};
+use crate::{InvoiceContract, InvoiceContractClient, InvoiceStatus};
 
 #[contract]
 pub struct MockRegistry;
@@ -19,7 +20,7 @@ impl MockRegistry {
     }
 
     pub fn register(env: Env, address: Address) {
-        env.storage().persistent().set(&DataKey(address), &true);
+        env.storage().persistent().set(&DataKey(address.clone()), &true);
         env.storage()
             .persistent()
             .extend_ttl(&DataKey(address), 100, 2_000_000);
