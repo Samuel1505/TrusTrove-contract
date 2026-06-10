@@ -68,6 +68,14 @@ impl RegistryContract {
         true
     }
 
+    pub fn is_verified(env: Env, address: Address) -> bool {
+        env.storage()
+            .persistent()
+            .get::<_, Profile>(&DataKey::Profile(address))
+            .map(|p| p.verified)
+            .unwrap_or(false)
+    }
+
     pub fn get_admin(env: Env) -> Address {
         env.storage()
             .instance()
