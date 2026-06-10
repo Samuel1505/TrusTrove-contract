@@ -1,6 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env};
+use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Map, String};
 
 mod errors;
 mod events;
@@ -20,6 +20,29 @@ impl RegistryContract {
         }
         admin.require_auth();
         env.storage().instance().set(&DataKey::Admin, &admin);
+    }
+
+    pub fn register_issuer(
+        env: Env,
+        address: Address,
+        metadata: Map<String, String>,
+    ) -> bool {
+        address.require_auth();
+        if env.storage().persistent().has(&DataKey::Profile(address.clone())) {
+            panic_with_error!(&env, RegistryError::AlreadyRegistered);
+        }
+        let profile = Profile {
+            address: address.clone(),
+            role: Role::Issuer,
+            verified: true,
+            registered_at: env.ledger().timestamp(),
+            metadata,
+        };
+        let key = DataKey::Profile(address.clone());
+        env.storage().persistent().set(&key, &profile);
+        env.storage().persistent().extend_ttl(&key, 100, 2_000_000);
+        events::issuer_registered(&env, &address);
+        true
     }
 
     pub fn get_admin(env: Env) -> Address {
