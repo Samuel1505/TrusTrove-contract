@@ -12,6 +12,7 @@ pub struct EscrowRecord {
 pub enum DataKey {
     Admin,
     PoolContract,
+    InvoiceContract,
     UsdcAsset,
     Locked(BytesN<32>),
 }
