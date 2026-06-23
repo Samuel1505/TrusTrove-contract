@@ -35,6 +35,7 @@ impl EscrowContract {
         env.storage()
             .instance()
             .set(&DataKey::UsdcAsset, &usdc_asset);
+        Self::extend_instance_ttl(&env);
     }
 
     pub fn lock(env: Env, invoice_id: BytesN<32>, amount: u128) -> bool {
@@ -65,6 +66,7 @@ impl EscrowContract {
         };
         env.storage().persistent().set(&key, &record);
         env.storage().persistent().extend_ttl(&key, 100, 2_000_000);
+        Self::extend_instance_ttl(&env);
 
         true
     }
@@ -93,6 +95,7 @@ impl EscrowContract {
         );
 
         env.storage().persistent().remove(&key);
+        Self::extend_instance_ttl(&env);
         true
     }
 
@@ -124,6 +127,7 @@ impl EscrowContract {
         );
 
         env.storage().persistent().remove(&key);
+        Self::extend_instance_ttl(&env);
         true
     }
 
@@ -155,6 +159,7 @@ impl EscrowContract {
         );
 
         env.storage().persistent().remove(&key);
+        Self::extend_instance_ttl(&env);
         true
     }
 
@@ -164,5 +169,9 @@ impl EscrowContract {
             .get::<_, EscrowRecord>(&DataKey::Locked(invoice_id))
             .map(|r| r.amount)
             .unwrap_or(0)
+    }
+
+    fn extend_instance_ttl(env: &Env) {
+        env.storage().instance().extend_ttl(100, 2_000_000);
     }
 }
